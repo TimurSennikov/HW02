@@ -3,6 +3,8 @@ const moment = require("moment");
 
 const app = express();
 
+app.use(express.json());
+
 let products = [
 	{
 		id: 0,
@@ -68,7 +70,7 @@ app.get("/products", (req, res) => {
 	let prods = products;
 
 	if(category) {
-		prods = prods.filter((a) => {a.category == category});
+		prods = prods.filter((a) => {return a.category == category;});
 	}
 
 	if(take) {
@@ -90,6 +92,53 @@ app.get("/product/:id", (req, res) => {
 	}
 
 	return res.json(products[id]);
+});
+
+async function addProduct(newProduct, fail) {
+	return new Promise((resolve, reject) => {
+		if(fail) {
+			return reject();
+		}
+
+		products.push(newProduct);
+		return resolve();
+	});
+}
+
+app.post("/products", async (req, res) => {
+	let { name, price, category, image } = req.body;
+	let { fail } = req.query;
+
+	let priceNum = Number(price);
+
+	if((!name || name.length == 0) || (!priceNum || priceNum <= 0)) {
+		return res.status(422).json({
+			ok: false,
+			description: "Invalid product data"
+		});
+	}
+
+	if(products.filter((a) => {a.name == name}).length > 0) {
+		return res.status(409).json({
+			ok: false,
+			description: "Conflict"
+		});
+	}
+
+	let newProduct = {
+		id: products.length,
+		title: name,
+		price: priceNum,
+		category: category
+	};
+
+	try {
+		await addProduct(newProduct, (fail && fail == "true"));
+		return res.status(201).json({ok: true, product: newProduct});
+	}
+	catch(e) {
+		return res.status(500).json(ok: false, description: "Internal server error");
+	}
 });
 
 app.listen(8000, "127.0.0.1", () => {
